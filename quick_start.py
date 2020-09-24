@@ -92,7 +92,9 @@ def create_single_data(mesh_filaname):
 
     # voxel
     if not os.path.exists(mesh_filaname.replace('_remesh.obj', '_normalized.binvox')):
-        os.system("./binvox -d 88 -pb " + mesh_filaname.replace("_remesh.obj", "_normalized.obj"))
+        print("gen binvox")
+        command = "binvox " + mesh_filaname.replace("_remesh.obj", "_normalized.obj") + " -d 88 -pb -e"
+        os.system(command)
     with open(mesh_filaname.replace('_remesh.obj', '_normalized.binvox'), 'rb') as fvox:
         vox = binvox_rw.read_as_3d_array(fvox)
 
@@ -407,12 +409,12 @@ if __name__ == '__main__':
     # We also use these two default parameters for processing all test models in batch.
 
     #model_id, bandwidth, threshold = "smith", None, 1e-5
-    model_id, bandwidth, threshold = "17872", 0.045, 0.75e-5
+    #model_id, bandwidth, threshold = "17872", 0.045, 0.75e-5
     #model_id, bandwidth, threshold = "8210", 0.05, 1e-5
     #model_id, bandwidth, threshold = "8330", 0.05, 0.8e-5
     #model_id, bandwidth, threshold = "9477", 0.043, 2.5e-5
     #model_id, bandwidth, threshold = "17364", 0.058, 0.3e-5
-    #model_id, bandwidth, threshold = "15930", 0.055, 0.4e-5
+    model_id, bandwidth, threshold = "15930", 0.055, 0.4e-5
     #model_id, bandwidth, threshold = "8333", 0.04, 2e-5
     #model_id, bandwidth, threshold = "8338", 0.052, 0.9e-5
     #model_id, bandwidth, threshold = "3318", 0.03, 0.92e-5
