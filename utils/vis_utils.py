@@ -105,7 +105,7 @@ def draw_shifted_pts(mesh_name, pts, weights=None):
     param = o3d.io.read_pinhole_camera_parameters('sideview.json')
     ctr.convert_from_pinhole_camera_parameters(param)
 
-    #vis.run()
+    vis.run()
     vis.update_geometry()
     vis.poll_events()
     vis.update_renderer()

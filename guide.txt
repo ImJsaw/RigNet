@@ -1,15 +1,20 @@
 //conda virtual environment 
 conda create -n rignet python=3.7
+//use if  get conda init problem
+source activate 
+source deactivate
+//activate env
 conda activate rignet
 
 //dependencies
 pip install numpy scipy matplotlib tensorboard open3d==0.9.0 opencv-python
-pip install trimesh[easy]
+pip install trimesh
 conda install pytorch torchvision cudatoolkit=10.1 -c pytorch
-pip install torch-scatter==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.6.0.html
-pip install torch-sparse==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.6.0.html
-pip install torch-cluster==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.6.0.html
-pip install torch-spline-conv==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.6.0.html
+# notice torch version
+pip install torch-scatter==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+pip install torch-sparse==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+pip install torch-cluster==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+pip install torch-spline-conv==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
 pip install torch-geometric
 
 
@@ -27,3 +32,6 @@ http://realtimerendering.com/erich/minecraft/public/vox_package.zip
 os.system("./binvox -d 88 -pb " + mesh_filaname.replace("_remesh.obj", "_normalized.obj"))
 //windows
 os.system("binvox " + mesh_filaname.replace("_remesh.obj", "_normalized.obj") + " -d 88 -pb -e")
+
+
+female high someone wrist sight hospital turtle away champion damage grain give

@@ -58,11 +58,13 @@ def create_single_data(mesh_filaname):
     :return: wrapped data, voxelized mesh, and geodesic distance matrix of all vertices
     """
     mesh = o3d.io.read_triangle_mesh(mesh_filaname)
-    mesh.compute_triangle_normals()
+    mesh.compute_vertex_normals()
     mesh_v = np.asarray(mesh.vertices)
     mesh_vn = np.asarray(mesh.vertex_normals)
     mesh_f = np.asarray(mesh.triangles)
-
+    #print("--")
+    #print(mesh.vertex_normals)
+    #print("--")
     mesh_v, translation_normalize, scale_normalize = normalize_obj(mesh_v)
     mesh_normalized = o3d.geometry.TriangleMesh(vertices=o3d.utility.Vector3dVector(mesh_v), triangles=o3d.utility.Vector3iVector(mesh_f))
     o3d.io.write_triangle_mesh(mesh_filename.replace("_remesh.obj", "_normalized.obj"), mesh_normalized)
@@ -91,18 +93,18 @@ def create_single_data(mesh_filaname):
     batch = torch.zeros(len(v), dtype=torch.long)
 
     # voxel
-    if not os.path.exists(mesh_filaname.replace('_remesh.obj', '_normalized.binvox')):
+    if not os.path.exists(mesh_filaname.replace('_ori.obj', '_ori.binvox')):
         print("gen binvox")
-        command = "binvox " + mesh_filaname.replace("_remesh.obj", "_normalized.obj") + " -d 88 -pb -e"
+        command = "binvox " + mesh_filaname + " -d 88 -pb -e"
         os.system(command)
-    with open(mesh_filaname.replace('_remesh.obj', '_normalized.binvox'), 'rb') as fvox:
+    with open(mesh_filaname.replace('_ori.obj', '_ori.binvox'), 'rb') as fvox:
         vox = binvox_rw.read_as_3d_array(fvox)
 
     data = Data(x=v[:, 3:6], pos=v[:, 0:3], tpl_edge_index=tpl_e, geo_edge_index=geo_e, batch=batch)
     return data, vox, surface_geodesic, translation_normalize, scale_normalize
 
 
-def predict_joints(input_data, vox, joint_pred_net, threshold, bandwidth=None, mesh_filename=None):
+def predict_joints(input_ske_data, input_data, vox, joint_pred_net, threshold, bandwidth=None, mesh_filename=None):
     """
     Predict joints
     :param input_data: wrapped input data
@@ -113,8 +115,12 @@ def predict_joints(input_data, vox, joint_pred_net, threshold, bandwidth=None, m
     :param mesh_filename: mesh filename for visualization
     :return: wrapped data with predicted joints, pair-wise bone representation added.
     """
-    data_displacement, _, attn_pred, bandwidth_pred = joint_pred_net(input_data)
-    y_pred = data_displacement + input_data.pos
+	# input skeleton data for joint predict
+    data_displacement, _, _, bandwidth_pred = joint_pred_net(input_ske_data)
+	# use origin data for weight predict
+    _, _, attn_pred, bandwidth_pred = joint_pred_net(input_data)
+	
+    y_pred = data_displacement + input_ske_data.pos
     y_pred_np = y_pred.data.cpu().numpy()
     attn_pred_np = attn_pred.data.cpu().numpy()
     y_pred_np, index_inside = inside_check(y_pred_np, vox)
@@ -126,7 +132,8 @@ def predict_joints(input_data, vox, joint_pred_net, threshold, bandwidth=None, m
     y_pred_np_reflect = y_pred_np * np.array([[-1, 1, 1]])
     y_pred_np = np.concatenate((y_pred_np, y_pred_np_reflect), axis=0)
     attn_pred_np = np.tile(attn_pred_np, (2, 1))
-
+    
+    #print("ready draw?")
     #img = draw_shifted_pts(mesh_filename, y_pred_np, weights=attn_pred_np)
     if bandwidth is None:
         bandwidth = bandwidth_pred.item()
@@ -165,9 +172,13 @@ def predict_joints(input_data, vox, joint_pred_net, threshold, bandwidth=None, m
     pairs_batch = torch.zeros(len(pairs), dtype=torch.long)
 
     input_data.joints = pred_joints
+    #print("joint",pred_joints)
     input_data.pairs = pairs
+    #print("pair",pairs)
     input_data.pair_attr = pair_attr
+    #print("pair_attr",pair_attr)
     input_data.joints_batch = joints_batch
+    #print("joints_batch",joints_batch)
     input_data.pairs_batch = pairs_batch
     return input_data
 
@@ -370,7 +381,7 @@ if __name__ == '__main__':
     # downsample_skinning is used to speed up the calculation of volumetric geodesic distance
     # and to save cpu memory in skinning calculation.
     # Change to False to be more accurate but less efficient.
-    downsample_skinning = True
+    downsample_skinning = False
 
     # load all weights
     print("loading all networks...")
@@ -414,7 +425,11 @@ if __name__ == '__main__':
     #model_id, bandwidth, threshold = "8330", 0.05, 0.8e-5
     #model_id, bandwidth, threshold = "9477", 0.043, 2.5e-5
     #model_id, bandwidth, threshold = "17364", 0.058, 0.3e-5
-    model_id, bandwidth, threshold = "15930", 0.055, 0.4e-5
+    #model_id, bandwidth, threshold = "15930", 0.055, 0.4e-5
+    #model_id, bandwidth, threshold = "15930", 0.0429, 1e-5
+    model_id, bandwidth, threshold = "neptune_5k", 0.0429, 1e-5
+    #model_id = "15930"
+
     #model_id, bandwidth, threshold = "8333", 0.04, 2e-5
     #model_id, bandwidth, threshold = "8338", 0.052, 0.9e-5
     #model_id, bandwidth, threshold = "3318", 0.03, 0.92e-5
@@ -428,20 +443,24 @@ if __name__ == '__main__':
 
     # create data used for inferece
     print("creating data for model ID {:s}".format(model_id))
-    mesh_filename = os.path.join(input_folder, '{:s}_remesh.obj'.format(model_id))
+    mesh_filename = os.path.join(input_folder, '{:s}_ori.obj'.format(model_id))
+    ske_filename = os.path.join(input_folder, '{:s}_ske.obj'.format(model_id))
+	
+    ske_data, ske_vox, _, _, _ = create_single_data(mesh_filename)
     data, vox, surface_geodesic, translation_normalize, scale_normalize = create_single_data(mesh_filename)
     data.to(device)
+    ske_data.to(device)
 
     print("predicting joints")
-    data = predict_joints(data, vox, jointNet, threshold, bandwidth=bandwidth,
-                          mesh_filename=mesh_filename.replace("_remesh.obj", "_normalized.obj"))
+    data = predict_joints(ske_data, data, ske_vox, jointNet, threshold, bandwidth=bandwidth,
+                          mesh_filename=mesh_filename)
     data.to(device)
     print("predicting connectivity")
     pred_skeleton = predict_skeleton(data, vox, rootNet, boneNet,
-                                     mesh_filename=mesh_filename.replace("_remesh.obj", "_normalized.obj"))
+                                     mesh_filename=mesh_filename)
     print("predicting skinning")
     pred_rig = predict_skinning(data, pred_skeleton, skinNet, surface_geodesic,
-                                mesh_filename.replace("_remesh.obj", "_normalized.obj"),
+                                mesh_filename,
                                 subsampling=downsample_skinning)
 
     # here we reverse the normalization to the original scale and position

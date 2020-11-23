@@ -55,9 +55,14 @@ def loadInfo(info_name, geo_name):
     for i in range(len(joint_skin)):
         vtx_name = geo_name + '.vtx['+joint_skin[i][0]+']'
         transValue = []
-        for j in range(1,len(joint_skin[i]),2):
+        sum=0
+        for j in range(1,len(joint_skin[i])-2,2):
+            sum += float(joint_skin[i][j+1])
             transValue_item = (joint_skin[i][j], float(joint_skin[i][j+1]))
-            transValue.append(transValue_item) 
+            transValue.append(transValue_item)
+		#handle sum >1 problem
+        transValue_item = (joint_skin[i][len(joint_skin[i])-2], 1-sum)
+        transValue.append(transValue_item) 
         #print vtx_name, transValue
         cmds.skinPercent( 'skinCluster1', vtx_name, transformValue=transValue)
     cmds.skinPercent( 'skinCluster1', geo_name, pruneWeights=0.01, normalize=False )
@@ -82,7 +87,7 @@ def getGeometryGroups():
     
 if __name__ == '__main__':
     #model_id = "17872"
-    model_id = "smith"
+    model_id = "15930"
     print(model_id)
     obj_name = 'D:\\{:s}_ori.obj'.format(model_id)
     info_name = 'D:\\{:s}_ori_rig.txt'.format(model_id)
